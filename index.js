@@ -1,5 +1,5 @@
 var dns = require('@google-cloud/dns')({
-  projectId: 'firecoral-dns',
+  projectId: 'my-project',
   keyFilename: './key.json'
 });
 
@@ -67,3 +67,95 @@ exports.dns2 = function dns2 (req, res) {
   res.send('done');
   return;
 }; 
+
+
+/*
+ * This code works using googleapis rather than @google-cloud/dns
+ * It's here as a reference.  I preferred the more readable version
+ * above.
+ *
+
+var google = require('googleapis');
+var dns = google.dns('v1');
+var key = require('./key.json');
+
+exports.dns1 = function dns1 (req, res) {
+  var ip = req.query.ip;
+  var host = req.query.host;
+  if (!ip || !host) {
+    res.send('Must include ip, host in query');
+    return;
+  }
+
+  var jwtClient = new google.auth.JWT(
+    key.client_email,
+    null,
+    key.private_key,
+    ['https://www.googleapis.com/auth/cloud-platform'], // an array of auth scopes
+    null
+  );
+  jwtClient.authorize(function (err, tokens) {
+    if (err) {
+      res.send('error1:' + err);
+      return;
+    }
+
+    // Get the existing record for this name (required to change)
+    var request = {
+      project: 'my-project',	// Update
+      managedZone: 'my-zone',	// Update
+      auth: jwtClient,
+      maxResults: 1,
+      name: host,
+      type: 'A',
+    };
+    var existingRecordSet;
+    dns.resourceRecordSets.list(request).then(function (response) {
+      if (response.rrsets.length >= 1) {
+        existingRecordSet = response.rrsets[0];
+      }
+
+      var changes = {
+        "kind": "dns#change",
+        "additions": [
+          {
+            "kind": "dns#resourceRecordSet",
+            "name": host,
+            "type": "A",
+            "ttl": 300,
+            "rrdatas": [
+              ip
+            ]
+          }
+        ],
+        "deletions": [
+          existingRecordSet
+        ]
+      };
+
+      request = {
+        project: 'my-project',		// Update
+        managedZone: 'project--zone',	// Update
+        auth: jwtClient,
+        resource: changes
+      };
+      dns.changes.create(request, function (err, response) {
+        if (err) {
+          res.send('error2:' + err);
+          return;
+        }
+        if (existingRecordSet)
+          console.log('Updated ' + host + ': ' + existingRecordSet.rrdatas[0] + ' => ' + ip);
+        else
+          console.log('Inserted ' + host + ': ' + ip);
+        res.send(JSON.stringify(response));
+      });
+    }).catch(function(err) {
+      res.send('error2:' + err);
+      return;
+    })
+  });
+};
+
+ *
+ */
